@@ -241,31 +241,6 @@ jobs:
       run: make
     - name: make install
       run: make install
-    - name: gather runtime dlls
-      run: |
-          # 目标 DLL（你的库）
-          TARGET_DLL=/mingw64/bin/libideviceactivation-1.0.dll
-
-          # 安装 ntldd
-          pacman -S --noconfirm --needed mingw-w64-${{ matrix.arch }}-ntldd
-
-          # 建立输出目录
-          mkdir -p bundle/bin
-          cp -u "$TARGET_DLL" bundle/bin/
-
-          # 递归解析依赖并复制到 bundle/bin
-          ntldd -R "$TARGET_DLL" \
-            | awk '/=>/ && $3 ~ /\/mingw.*\/bin\/.*\.dll$/ {print $3}' \
-            | sort -u \
-            | xargs -r -I{} cp -u {} bundle/bin/
-          
-          # 可选：拷贝其他自家 DLL，如果 workflow 产出放在 /usr/local/bin 或 /mingw64/bin
-          # cp -u /mingw64/bin/libplist-2.0.dll bundle/bin/ || true
-          # cp -u /mingw64/bin/libusbmuxd-2.0.dll bundle/bin/ || true
-
-          # 打包 bundle
-          tar -C bundle -cf libideviceactivation-with-deps_${{ matrix.arch }}-${{ env.dest }}.tar bin
-
     - name: prepare artifact
       run: |
           mkdir -p dest
