@@ -33,15 +33,15 @@
 #include <curl/curl.h>
 
 #ifdef IDEVICE_ACTIVATION_STATIC
-  #define IDEVICE_ACTIVATION_API
+#define IDEVICE_ACTIVATION_API
 #elif defined(_WIN32)
-  #define IDEVICE_ACTIVATION_API __declspec( dllexport )
+#define IDEVICE_ACTIVATION_API __declspec(dllexport)
 #else
-  #if __GNUC__ >= 4
-    #define IDEVICE_ACTIVATION_API __attribute__((visibility("default")))
-  #else
-    #define IDEVICE_ACTIVATION_API
-  #endif
+#if __GNUC__ >= 4
+#define IDEVICE_ACTIVATION_API __attribute__((visibility("default")))
+#else
+#define IDEVICE_ACTIVATION_API
+#endif
 #endif
 
 #ifdef _WIN32
@@ -56,26 +56,29 @@
 // 2010-2016 Joe Lowe. Released into the public domain.
 
 #ifdef __cplusplus
-    #define INITIALIZER(f) \
-        static void f(void); \
-        struct f##_t_ { f##_t_(void) { f(); } }; static f##_t_ f##_; \
-        static void f(void)
+#define INITIALIZER(f)    \
+	static void f(void);    \
+	struct f##_t_           \
+	{                       \
+		f##_t_(void) { f(); } \
+	};                      \
+	static f##_t_ f##_;     \
+	static void f(void)
 #elif defined(_MSC_VER)
-    #pragma section(".CRT$XCU",read)
-    #define INITIALIZER2_(f,p) \
-        static void f(void); \
-        __declspec(allocate(".CRT$XCU")) void (*f##_)(void) = f; \
-        __pragma(comment(linker,"/include:" p #f "_")) \
-        static void f(void)
-    #ifdef _WIN64
-        #define INITIALIZER(f) INITIALIZER2_(f,"")
-    #else
-        #define INITIALIZER(f) INITIALIZER2_(f,"_")
-    #endif
+#pragma section(".CRT$XCU", read)
+#define INITIALIZER2_(f, p)                                \
+	static void f(void);                                     \
+	__declspec(allocate(".CRT$XCU")) void (*f##_)(void) = f; \
+	__pragma(comment(linker, "/include:" p #f "_")) static void f(void)
+#ifdef _WIN64
+#define INITIALIZER(f) INITIALIZER2_(f, "")
 #else
-    #define INITIALIZER(f) \
-        static void f(void) __attribute__((__constructor__)); \
-        static void f(void)
+#define INITIALIZER(f) INITIALIZER2_(f, "_")
+#endif
+#else
+#define INITIALIZER(f)                                  \
+	static void f(void) __attribute__((__constructor__)); \
+	static void f(void)
 #endif
 
 #define IDEVICE_ACTIVATION_USER_AGENT_IOS "iOS Device Activator (MobileActivation-592.103.2)"
@@ -83,7 +86,8 @@
 #define IDEVICE_ACTIVATION_DEFAULT_URL "https://albert.apple.com/deviceservices/deviceActivation"
 #define IDEVICE_ACTIVATION_DRM_HANDSHAKE_DEFAULT_URL "https://albert.apple.com/deviceservices/drmHandshake"
 
-typedef enum {
+typedef enum
+{
 	IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED,
 	IDEVICE_ACTIVATION_CONTENT_TYPE_MULTIPART_FORMDATA,
 	IDEVICE_ACTIVATION_CONTENT_TYPE_HTML,
@@ -92,19 +96,21 @@ typedef enum {
 	IDEVICE_ACTIVATION_CONTENT_TYPE_UNKNOWN
 } idevice_activation_content_type_t;
 
-struct idevice_activation_request_private {
+struct idevice_activation_request_private
+{
 	idevice_activation_client_type_t client_type;
 	idevice_activation_content_type_t content_type;
-	char* url;
+	char *url;
 	plist_t fields;
 };
 
-struct idevice_activation_response_private {
-	char* raw_content;
+struct idevice_activation_response_private
+{
+	char *raw_content;
 	size_t raw_content_size;
 	idevice_activation_content_type_t content_type;
-	char* title;
-	char* description;
+	char *title;
+	char *description;
 	plist_t activation_record;
 	plist_t headers;
 	plist_t fields;
@@ -130,54 +136,67 @@ INITIALIZER(internal_libideviceactivation_init)
 
 static int debug_level = 0;
 
-void idevice_activation_set_debug_level(int level) {
+void idevice_activation_set_debug_level(int level)
+{
 	debug_level = level;
 }
 
 static idevice_activation_error_t idevice_activation_activation_record_from_plist(idevice_activation_response_t response, plist_t plist)
 {
 	plist_t record = plist_dict_get_item(plist, "ActivationRecord");
-	if (record != NULL) {
+	if (record != NULL)
+	{
 		plist_t ack_received = plist_dict_get_item(record, "ack-received");
-		if (ack_received) {
+		if (ack_received)
+		{
 			uint8_t val = 0;
 			plist_get_bool_val(ack_received, &val);
-			if (val) {
+			if (val)
+			{
 				response->is_activation_ack = 1;
 			}
 		}
 		response->activation_record = plist_new_data(response->raw_content, response->raw_content_size);
-	} else {
+	}
+	else
+	{
 		plist_t activation_node = plist_dict_get_item(plist, "iphone-activation");
-		if (!activation_node) {
+		if (!activation_node)
+		{
 			activation_node = plist_dict_get_item(plist, "device-activation");
 		}
-		if (!activation_node) {
+		if (!activation_node)
+		{
 			return IDEVICE_ACTIVATION_E_PLIST_PARSING_ERROR;
 		}
 		plist_t ack_received = plist_dict_get_item(activation_node, "ack-received");
-		if (ack_received) {
+		if (ack_received)
+		{
 			uint8_t val = 0;
 			plist_get_bool_val(ack_received, &val);
-			if (val) {
+			if (val)
+			{
 				response->is_activation_ack = 1;
 			}
 		}
 		record = plist_dict_get_item(activation_node, "activation-record");
-		if (record) {
+		if (record)
+		{
 			response->activation_record = plist_copy(record);
 		}
 	}
 	return IDEVICE_ACTIVATION_E_SUCCESS;
 }
 
-static void idevice_activation_response_add_field(idevice_activation_response_t response, const char* key, const char* value, int required_input, int secure_input)
+static void idevice_activation_response_add_field(idevice_activation_response_t response, const char *key, const char *value, int required_input, int secure_input)
 {
 	plist_dict_set_item(response->fields, key, plist_new_string(value));
-	if (required_input) {
+	if (required_input)
+	{
 		plist_dict_set_item(response->fields_require_input, key, plist_new_bool(1));
 	}
-	if (secure_input) {
+	if (secure_input)
+	{
 		plist_dict_set_item(response->fields_secure_input, key, plist_new_bool(1));
 	}
 }
@@ -194,29 +213,34 @@ static idevice_activation_error_t idevice_activation_parse_buddyml_response(idev
 		return IDEVICE_ACTIVATION_E_UNKNOWN_CONTENT_TYPE;
 
 	doc = xmlReadMemory(response->raw_content, response->raw_content_size, "ideviceactivation.xml", NULL, XML_PARSE_NOERROR);
-	if (!doc) {
+	if (!doc)
+	{
 		result = IDEVICE_ACTIVATION_E_BUDDYML_PARSING_ERROR;
 		goto cleanup;
 	}
 
 	context = xmlXPathNewContext(doc);
-	if (!context) {
+	if (!context)
+	{
 		result = IDEVICE_ACTIVATION_E_BUDDYML_PARSING_ERROR;
 		goto cleanup;
 	}
 
 	// check for an error
 	// <navigationBar> appears directly under <xmlui> only in case of an error
-	xpath_result = xmlXPathEvalExpression((const xmlChar*) "/xmlui/navigationBar/@title", context);
-	if (!xpath_result) {
+	xpath_result = xmlXPathEvalExpression((const xmlChar *)"/xmlui/navigationBar/@title", context);
+	if (!xpath_result)
+	{
 		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 		goto cleanup;
 	}
 
-	if (xpath_result->nodesetval && xpath_result->nodesetval->nodeNr) {
-		xmlChar* content =  xmlNodeListGetString(doc, xpath_result->nodesetval->nodeTab[0]->xmlChildrenNode, 1);
-		if (content) {
-			response->title = strdup((const char*) content);
+	if (xpath_result->nodesetval && xpath_result->nodesetval->nodeNr)
+	{
+		xmlChar *content = xmlNodeListGetString(doc, xpath_result->nodesetval->nodeTab[0]->xmlChildrenNode, 1);
+		if (content)
+		{
+			response->title = strdup((const char *)content);
 			xmlFree(content);
 		}
 
@@ -225,141 +249,172 @@ static idevice_activation_error_t idevice_activation_parse_buddyml_response(idev
 	}
 
 	// check for activation ack
-	if (xpath_result) {
+	if (xpath_result)
+	{
 		xmlXPathFreeObject(xpath_result);
 		xpath_result = NULL;
 	}
-	xpath_result = xmlXPathEvalExpression((const xmlChar*) "/xmlui/clientInfo[@ack-received='true']", context);
-	if (!xpath_result) {
+	xpath_result = xmlXPathEvalExpression((const xmlChar *)"/xmlui/clientInfo[@ack-received='true']", context);
+	if (!xpath_result)
+	{
 		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 		goto cleanup;
 	}
 
-	if (xpath_result->nodesetval && xpath_result->nodesetval->nodeNr) {
+	if (xpath_result->nodesetval && xpath_result->nodesetval->nodeNr)
+	{
 		// existing activation_acknowledged
 		response->is_activation_ack = 1;
 		goto cleanup;
 	}
 
 	// retrieve response title
-	if (xpath_result) {
+	if (xpath_result)
+	{
 		xmlXPathFreeObject(xpath_result);
 		xpath_result = NULL;
 	}
-	xpath_result = xmlXPathEvalExpression((const xmlChar*) "/xmlui/alert/@title", context);
-	if (!xpath_result) {
+	xpath_result = xmlXPathEvalExpression((const xmlChar *)"/xmlui/alert/@title", context);
+	if (!xpath_result)
+	{
 		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 		goto cleanup;
 	}
 
-	if (xpath_result->nodesetval && xpath_result->nodesetval->nodeNr) {
+	if (xpath_result->nodesetval && xpath_result->nodesetval->nodeNr)
+	{
 		// incorrect credentials
 		// <alert> exists only in case of incorrect credentials
-		xmlChar* content =  xmlNodeListGetString(doc, xpath_result->nodesetval->nodeTab[0]->xmlChildrenNode, 1);
-		if (content) {
-			response->title = strdup((const char*) content);
+		xmlChar *content = xmlNodeListGetString(doc, xpath_result->nodesetval->nodeTab[0]->xmlChildrenNode, 1);
+		if (content)
+		{
+			response->title = strdup((const char *)content);
 			xmlFree(content);
 		}
-	} else {
-		if (xpath_result) {
+	}
+	else
+	{
+		if (xpath_result)
+		{
 			xmlXPathFreeObject(xpath_result);
 			xpath_result = NULL;
 		}
-		xpath_result = xmlXPathEvalExpression((const xmlChar*) "/xmlui/page/navigationBar/@title", context);
-		if (!xpath_result) {
+		xpath_result = xmlXPathEvalExpression((const xmlChar *)"/xmlui/page/navigationBar/@title", context);
+		if (!xpath_result)
+		{
 			result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 			goto cleanup;
 		}
 
-		if (!xpath_result->nodesetval) {
-			result =  IDEVICE_ACTIVATION_E_BUDDYML_PARSING_ERROR;
+		if (!xpath_result->nodesetval)
+		{
+			result = IDEVICE_ACTIVATION_E_BUDDYML_PARSING_ERROR;
 			goto cleanup;
 		}
-		xmlChar* content =  xmlNodeListGetString(doc, xpath_result->nodesetval->nodeTab[0]->xmlChildrenNode, 1);
-		if (content) {
-			response->title = strdup((const char*) content);
+		xmlChar *content = xmlNodeListGetString(doc, xpath_result->nodesetval->nodeTab[0]->xmlChildrenNode, 1);
+		if (content)
+		{
+			response->title = strdup((const char *)content);
 			xmlFree(content);
 		}
 	}
 
 	// retrieve response description
-	if (xpath_result) {
+	if (xpath_result)
+	{
 		xmlXPathFreeObject(xpath_result);
 		xpath_result = NULL;
 	}
-	xpath_result = xmlXPathEvalExpression((const xmlChar*) "/xmlui/page/tableView/section/footer[not (@url)]", context);
-	if (!xpath_result) {
+	xpath_result = xmlXPathEvalExpression((const xmlChar *)"/xmlui/page/tableView/section/footer[not (@url)]", context);
+	if (!xpath_result)
+	{
 		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 		goto cleanup;
 	}
-	if (!xpath_result->nodesetval) {
+	if (!xpath_result->nodesetval)
+	{
 		xmlXPathFreeObject(xpath_result);
-		xpath_result = xmlXPathEvalExpression((const xmlChar*) "/xmlui/page/tableView/section[@footer and not(@footerLinkURL)]/@footer", context);
+		xpath_result = xmlXPathEvalExpression((const xmlChar *)"/xmlui/page/tableView/section[@footer and not(@footerLinkURL)]/@footer", context);
 		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 		goto cleanup;
 	}
 
-	if (xpath_result->nodesetval) {
-		char* response_description = (char*) malloc(sizeof(char));
+	if (xpath_result->nodesetval)
+	{
+		char *response_description = (char *)malloc(sizeof(char));
 		response_description[0] = '\0';
 
-		for(i = 0; i < xpath_result->nodesetval->nodeNr; i++) {
-			xmlChar* content = xmlNodeListGetString(doc, xpath_result->nodesetval->nodeTab[i]->xmlChildrenNode, 1);
-			if (content) {
+		for (i = 0; i < xpath_result->nodesetval->nodeNr; i++)
+		{
+			xmlChar *content = xmlNodeListGetString(doc, xpath_result->nodesetval->nodeTab[i]->xmlChildrenNode, 1);
+			if (content)
+			{
 				const size_t len = strlen(response_description);
-				response_description = (char*) realloc(response_description, len + xmlStrlen(content) + 2);
-				sprintf(&response_description[len], "%s\n", (const char*) content);
+				response_description = (char *)realloc(response_description, len + xmlStrlen(content) + 2);
+				sprintf(&response_description[len], "%s\n", (const char *)content);
 				xmlFree(content);
 			}
 		}
 
-		if (strlen(response_description) > 0) {
+		if (strlen(response_description) > 0)
+		{
 			// remove the last '\n'
 			response_description[strlen(response_description) - 1] = '\0';
 			response->description = response_description;
-		} else {
+		}
+		else
+		{
 			free(response_description);
 		}
 	}
 
 	// retrieve input fields
-	if (xpath_result) {
+	if (xpath_result)
+	{
 		xmlXPathFreeObject(xpath_result);
 		xpath_result = NULL;
 	}
 
-	xpath_result = xmlXPathEvalExpression((const xmlChar*) "/xmlui/page//editableTextRow", context);
-	if (!xpath_result) {
+	xpath_result = xmlXPathEvalExpression((const xmlChar *)"/xmlui/page//editableTextRow", context);
+	if (!xpath_result)
+	{
 		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 		goto cleanup;
 	}
 
-	if (xpath_result->nodesetval) {
-		for(i = 0; i < xpath_result->nodesetval->nodeNr; i++) {
-			xmlChar* id = xmlGetProp(xpath_result->nodesetval->nodeTab[i], (const xmlChar*) "id");
-			if (!id) {
+	if (xpath_result->nodesetval)
+	{
+		for (i = 0; i < xpath_result->nodesetval->nodeNr; i++)
+		{
+			xmlChar *id = xmlGetProp(xpath_result->nodesetval->nodeTab[i], (const xmlChar *)"id");
+			if (!id)
+			{
 				result = IDEVICE_ACTIVATION_E_BUDDYML_PARSING_ERROR;
 				goto cleanup;
 			}
 			int secure_input = 0;
-			xmlChar* secure = xmlGetProp(xpath_result->nodesetval->nodeTab[i], (const xmlChar*) "secure");
-			if (secure) {
-				if (!strcmp((const char*)secure, "true")) {
+			xmlChar *secure = xmlGetProp(xpath_result->nodesetval->nodeTab[i], (const xmlChar *)"secure");
+			if (secure)
+			{
+				if (!strcmp((const char *)secure, "true"))
+				{
 					secure_input = 1;
 				}
 				xmlFree(secure);
 			}
 
-			idevice_activation_response_add_field(response, (const char*) id, "", 1, secure_input);
+			idevice_activation_response_add_field(response, (const char *)id, "", 1, secure_input);
 
-			xmlChar* label = xmlGetProp(xpath_result->nodesetval->nodeTab[i], (const xmlChar*) "label");
-			if (label) {
-				plist_dict_set_item(response->labels, (const char*)id, plist_new_string((const char*) label));
+			xmlChar *label = xmlGetProp(xpath_result->nodesetval->nodeTab[i], (const xmlChar *)"label");
+			if (label)
+			{
+				plist_dict_set_item(response->labels, (const char *)id, plist_new_string((const char *)label));
 				xmlFree(label);
 			}
-			xmlChar* placeholder = xmlGetProp(xpath_result->nodesetval->nodeTab[i], (const xmlChar*) "placeholder");
-			if (placeholder) {
-				plist_dict_set_item(response->labels_placeholder, (const char*)id, plist_new_string((const char*) placeholder));
+			xmlChar *placeholder = xmlGetProp(xpath_result->nodesetval->nodeTab[i], (const xmlChar *)"placeholder");
+			if (placeholder)
+			{
+				plist_dict_set_item(response->labels_placeholder, (const char *)id, plist_new_string((const char *)placeholder));
 				xmlFree(placeholder);
 			}
 
@@ -368,33 +423,40 @@ static idevice_activation_error_t idevice_activation_parse_buddyml_response(idev
 	}
 
 	// retrieve server info fields
-	if (xpath_result) {
+	if (xpath_result)
+	{
 		xmlXPathFreeObject(xpath_result);
 		xpath_result = NULL;
 	}
 
-	xpath_result = xmlXPathEvalExpression((const xmlChar*) "/xmlui/serverInfo/@*", context);
-	if (!xpath_result) {
+	xpath_result = xmlXPathEvalExpression((const xmlChar *)"/xmlui/serverInfo/@*", context);
+	if (!xpath_result)
+	{
 		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 		goto cleanup;
 	}
 
-	if (xpath_result->nodesetval) {
-		for(i = 0; i < xpath_result->nodesetval->nodeNr; i++) {
-			xmlChar* content = xmlNodeGetContent(xpath_result->nodesetval->nodeTab[i]);
-			if (content) {
-				if (!xmlStrcmp(xpath_result->nodesetval->nodeTab[i]->name, (const xmlChar*) "isAuthRequired")) {
+	if (xpath_result->nodesetval)
+	{
+		for (i = 0; i < xpath_result->nodesetval->nodeNr; i++)
+		{
+			xmlChar *content = xmlNodeGetContent(xpath_result->nodesetval->nodeTab[i]);
+			if (content)
+			{
+				if (!xmlStrcmp(xpath_result->nodesetval->nodeTab[i]->name, (const xmlChar *)"isAuthRequired"))
+				{
 					response->is_auth_required = 1;
 				}
 
 				idevice_activation_response_add_field(response,
-					(const char*) xpath_result->nodesetval->nodeTab[i]->name, (const char*) content, 0, 0);
+																							(const char *)xpath_result->nodesetval->nodeTab[i]->name, (const char *)content, 0, 0);
 				xmlFree(content);
 			}
 		}
 	}
 
-	if (plist_dict_get_size(response->fields) == 0) {
+	if (plist_dict_get_size(response->fields) == 0)
+	{
 		response->has_errors = 1;
 	}
 
@@ -420,50 +482,59 @@ static idevice_activation_error_t idevice_activation_parse_html_response(idevice
 		return IDEVICE_ACTIVATION_E_UNKNOWN_CONTENT_TYPE;
 
 	doc = xmlReadMemory(response->raw_content, response->raw_content_size, "ideviceactivation.xml", NULL, XML_PARSE_RECOVER | XML_PARSE_NOERROR);
-	if (!doc) {
+	if (!doc)
+	{
 		result = IDEVICE_ACTIVATION_E_HTML_PARSING_ERROR;
 		goto cleanup;
 	}
 
 	context = xmlXPathNewContext(doc);
-	if (!context) {
+	if (!context)
+	{
 		result = IDEVICE_ACTIVATION_E_HTML_PARSING_ERROR;
 		goto cleanup;
 	}
 
 	// check for authentication required
-	if (xpath_result) {
+	if (xpath_result)
+	{
 		xmlXPathFreeObject(xpath_result);
 		xpath_result = NULL;
 	}
-	xpath_result = xmlXPathEvalExpression((const xmlChar*) "//input[@name='isAuthRequired' and @value='true']", context);
-	if (!xpath_result) {
+	xpath_result = xmlXPathEvalExpression((const xmlChar *)"//input[@name='isAuthRequired' and @value='true']", context);
+	if (!xpath_result)
+	{
 		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 		goto cleanup;
 	}
 
-	if (xpath_result->nodesetval && xpath_result->nodesetval->nodeNr) {
+	if (xpath_result->nodesetval && xpath_result->nodesetval->nodeNr)
+	{
 		response->is_auth_required = 1;
 		goto cleanup;
 	}
 
 	// check for plist content
-	xpath_result = xmlXPathEvalExpression((const xmlChar*) "//script[@type='text/x-apple-plist']/plist", context);
-	if (!xpath_result) {
+	xpath_result = xmlXPathEvalExpression((const xmlChar *)"//script[@type='text/x-apple-plist']/plist", context);
+	if (!xpath_result)
+	{
 		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 		goto cleanup;
 	}
 
-	if (xpath_result->nodesetval && xpath_result->nodesetval->nodeNr) {
+	if (xpath_result->nodesetval && xpath_result->nodesetval->nodeNr)
+	{
 		plist_t plist = NULL;
 		xmlBufferPtr plistNodeBuffer = xmlBufferCreate();
-		if (htmlNodeDump(plistNodeBuffer, doc, xpath_result->nodesetval->nodeTab[0]) == -1) {
+		if (htmlNodeDump(plistNodeBuffer, doc, xpath_result->nodesetval->nodeTab[0]) == -1)
+		{
 			result = IDEVICE_ACTIVATION_E_HTML_PARSING_ERROR;
 			goto local_cleanup;
 		}
 
-		plist_from_xml((const char*) plistNodeBuffer->content, plistNodeBuffer->use, &plist);
-		if (!plist) {
+		plist_from_xml((const char *)plistNodeBuffer->content, plistNodeBuffer->use, &plist);
+		if (!plist)
+		{
 			result = IDEVICE_ACTIVATION_E_PLIST_PARSING_ERROR;
 			goto local_cleanup;
 		}
@@ -491,48 +562,53 @@ cleanup:
 
 static idevice_activation_error_t idevice_activation_parse_raw_response(idevice_activation_response_t response)
 {
-	switch(response->content_type)
+	switch (response->content_type)
 	{
-		case IDEVICE_ACTIVATION_CONTENT_TYPE_PLIST:
+	case IDEVICE_ACTIVATION_CONTENT_TYPE_PLIST:
+	{
+		idevice_activation_error_t result = IDEVICE_ACTIVATION_E_SUCCESS;
+
+		plist_t plist = NULL;
+		plist_from_xml(response->raw_content, response->raw_content_size, &plist);
+
+		if (plist == NULL)
 		{
-			idevice_activation_error_t result = IDEVICE_ACTIVATION_E_SUCCESS;
-
-			plist_t plist = NULL;
-			plist_from_xml(response->raw_content, response->raw_content_size, &plist);
-
-			if (plist == NULL) {
-				return IDEVICE_ACTIVATION_E_PLIST_PARSING_ERROR;
-			}
-
-			/* check if this is a reply to drmHandshake request */
-			if (plist_dict_get_item(plist, "HandshakeResponseMessage") != NULL) {
-				result = IDEVICE_ACTIVATION_E_SUCCESS;
-			} else {
-				result = idevice_activation_activation_record_from_plist(response, plist);
-			}
-
-			plist_free(response->fields);
-			response->fields = plist;
-
-			return result;
+			return IDEVICE_ACTIVATION_E_PLIST_PARSING_ERROR;
 		}
-		case IDEVICE_ACTIVATION_CONTENT_TYPE_BUDDYML:
-			return idevice_activation_parse_buddyml_response(response);
-		case IDEVICE_ACTIVATION_CONTENT_TYPE_HTML:
-			return idevice_activation_parse_html_response(response);
-		default:
-			return IDEVICE_ACTIVATION_E_UNKNOWN_CONTENT_TYPE;
+
+		/* check if this is a reply to drmHandshake request */
+		if (plist_dict_get_item(plist, "HandshakeResponseMessage") != NULL)
+		{
+			result = IDEVICE_ACTIVATION_E_SUCCESS;
+		}
+		else
+		{
+			result = idevice_activation_activation_record_from_plist(response, plist);
+		}
+
+		plist_free(response->fields);
+		response->fields = plist;
+
+		return result;
+	}
+	case IDEVICE_ACTIVATION_CONTENT_TYPE_BUDDYML:
+		return idevice_activation_parse_buddyml_response(response);
+	case IDEVICE_ACTIVATION_CONTENT_TYPE_HTML:
+		return idevice_activation_parse_html_response(response);
+	default:
+		return IDEVICE_ACTIVATION_E_UNKNOWN_CONTENT_TYPE;
 	}
 
 	return IDEVICE_ACTIVATION_E_SUCCESS;
 }
 
-static size_t idevice_activation_write_callback(char* data, size_t size, size_t nmemb, void* userdata)
+static size_t idevice_activation_write_callback(char *data, size_t size, size_t nmemb, void *userdata)
 {
 	idevice_activation_response_t response = (idevice_activation_response_t)userdata;
 	const size_t total = size * nmemb;
 
-	if (total != 0) {
+	if (total != 0)
+	{
 		response->raw_content = realloc(response->raw_content, response->raw_content_size + total + 1);
 		memcpy(response->raw_content + response->raw_content_size, data, total);
 		response->raw_content[response->raw_content_size + total] = '\0';
@@ -546,7 +622,8 @@ static size_t idevice_activation_header_callback(void *data, size_t size, size_t
 {
 	idevice_activation_response_t response = (idevice_activation_response_t)userdata;
 	const size_t total = size * nmemb;
-	if (total != 0) {
+	if (total != 0)
+	{
 		char *header = malloc(total + 1);
 		char *value = NULL;
 		char *p = NULL;
@@ -554,29 +631,42 @@ static size_t idevice_activation_header_callback(void *data, size_t size, size_t
 		header[total] = '\0';
 
 		p = strchr(header, ':');
-		if (p) {
+		if (p)
+		{
 			*p = '\0';
 			p++;
-			while (*p == ' ') {
+			while (*p == ' ')
+			{
 				p++;
 			}
-			if (*p != '\0') {
+			if (*p != '\0')
+			{
 				value = p;
-				while (*p != '\0' && *p != '\n' && *p != '\r') {
+				while (*p != '\0' && *p != '\n' && *p != '\r')
+				{
 					p++;
 				}
 				*p = '\0';
 			}
 		}
-		if (value) {
-			if (strncasecmp(header, "Content-Type", 12) == 0) {
-				if (strncasecmp(value, "text/xml", 8) == 0) {
+		if (value)
+		{
+			if (strncasecmp(header, "Content-Type", 12) == 0)
+			{
+				if (strncasecmp(value, "text/xml", 8) == 0)
+				{
 					response->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_PLIST;
-				} else if (strncasecmp(value, "application/xml", 15) == 0) {
+				}
+				else if (strncasecmp(value, "application/xml", 15) == 0)
+				{
 					response->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_PLIST;
-				} else if (strncasecmp(value, "application/x-buddyml", 21) == 0) {
+				}
+				else if (strncasecmp(value, "application/x-buddyml", 21) == 0)
+				{
 					response->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_BUDDYML;
-				} else if (strncasecmp(value, "text/html", 9) == 0) {
+				}
+				else if (strncasecmp(value, "text/html", 9) == 0)
+				{
 					response->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_HTML;
 				}
 			}
@@ -587,42 +677,47 @@ static size_t idevice_activation_header_callback(void *data, size_t size, size_t
 	return total;
 }
 
-static char* urlencode(const char* buf)
+static char *urlencode(const char *buf)
 {
 	static const signed char conv_table[256] = {
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
-		1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
-		1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-	};
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
+			1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
+			1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
 	unsigned int i;
 	int count = 0;
-	for (i = 0; i < strlen(buf); i++) {
-		if (conv_table[(int)buf[i]]) {
+	for (i = 0; i < strlen(buf); i++)
+	{
+		if (conv_table[(int)buf[i]])
+		{
 			count++;
 		}
 	}
-	int newsize = strlen(buf) + count*2 + 1;
-	char* res = malloc(newsize);
+	int newsize = strlen(buf) + count * 2 + 1;
+	char *res = malloc(newsize);
 	int o = 0;
-	for (i = 0; i < strlen(buf); i++) {
-		if (conv_table[(int)buf[i]]) {
+	for (i = 0; i < strlen(buf); i++)
+	{
+		if (conv_table[(int)buf[i]])
+		{
 			sprintf(&res[o], "%%%02X", (unsigned char)buf[i]);
-			o+=3;
-		} else {
+			o += 3;
+		}
+		else
+		{
 			res[o] = buf[i];
 			o++;
 		}
@@ -632,22 +727,22 @@ static char* urlencode(const char* buf)
 	return res;
 }
 
-static int plist_strip_xml(char** xmlplist)
+static int plist_strip_xml(char **xmlplist)
 {
 	if (!xmlplist || !*xmlplist)
 		return -1;
 
-	char* start = strstr(*xmlplist, "<plist version=\"1.0\">\n");
+	char *start = strstr(*xmlplist, "<plist version=\"1.0\">\n");
 	if (!start)
 		return -1;
 
-	char* stop = strstr(*xmlplist, "\n</plist>");
+	char *stop = strstr(*xmlplist, "\n</plist>");
 	if (!stop)
 		return -1;
 
 	start += strlen("<plist version=\"1.0\">\n");
 	uint32_t size = stop - start;
-	char* stripped = malloc(size + 1);
+	char *stripped = malloc(size + 1);
 	if (!stripped)
 		return -1;
 
@@ -661,7 +756,8 @@ static int plist_strip_xml(char** xmlplist)
 
 static int idevice_activation_curl_debug_callback(CURL *handle, curl_infotype type, char *data, size_t size, void *userptr)
 {
-	switch (type) {
+	switch (type)
+	{
 	case CURLINFO_TEXT:
 		fprintf(stderr, "* ");
 		break;
@@ -681,20 +777,22 @@ static int idevice_activation_curl_debug_callback(CURL *handle, curl_infotype ty
 	}
 
 	fwrite(data, 1, size, stderr);
-	if (size > 0 && data[size-1] != '\n') {
+	if (size > 0 && data[size - 1] != '\n')
+	{
 		fprintf(stderr, "\n");
 	}
 	return 0;
 }
 
-idevice_activation_error_t idevice_activation_request_new(idevice_activation_client_type_t client_type, idevice_activation_request_t* request)
+idevice_activation_error_t idevice_activation_request_new(idevice_activation_client_type_t client_type, idevice_activation_request_t *request)
 {
 	if (!request)
 		return IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 
-	idevice_activation_request_t tmp_request = (idevice_activation_request_t) malloc(sizeof(idevice_activation_request));
+	idevice_activation_request_t tmp_request = (idevice_activation_request_t)malloc(sizeof(idevice_activation_request));
 
-	if (!tmp_request) {
+	if (!tmp_request)
+	{
 		return IDEVICE_ACTIVATION_E_OUT_OF_MEMORY;
 	}
 
@@ -707,9 +805,10 @@ idevice_activation_error_t idevice_activation_request_new(idevice_activation_cli
 	return IDEVICE_ACTIVATION_E_SUCCESS;
 }
 
-idevice_activation_error_t idevice_activation_request_new_from_lockdownd(idevice_activation_client_type_t client_type, lockdownd_client_t lockdown, idevice_activation_request** request)
+idevice_activation_error_t idevice_activation_request_new_from_lockdownd(idevice_activation_client_type_t client_type, lockdownd_client_t lockdown, idevice_activation_request **request)
 {
-	if (!lockdown || !request) {
+	if (!lockdown || !request)
+	{
 		return IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 	}
 
@@ -725,7 +824,8 @@ idevice_activation_error_t idevice_activation_request_new_from_lockdownd(idevice
 
 	// get a bunch of information at once
 	err = lockdownd_get_value(lockdown, NULL, NULL, &info);
-	if (err != LOCKDOWN_E_SUCCESS) {
+	if (err != LOCKDOWN_E_SUCCESS)
+	{
 		if (debug_level > 0)
 			fprintf(stderr, "%s: Unable to get basic information from lockdownd\n", __func__);
 		plist_free(fields);
@@ -734,7 +834,8 @@ idevice_activation_error_t idevice_activation_request_new_from_lockdownd(idevice
 
 	// add AppleSerialNumber
 	node = plist_dict_get_item(info, "SerialNumber");
-	if (!node || plist_get_node_type(node) != PLIST_STRING) {
+	if (!node || plist_get_node_type(node) != PLIST_STRING)
+	{
 		if (debug_level > 0)
 			fprintf(stderr, "%s: Unable to get SerialNumber from lockdownd\n", __func__);
 		plist_free(fields);
@@ -744,22 +845,28 @@ idevice_activation_error_t idevice_activation_request_new_from_lockdownd(idevice
 	plist_dict_set_item(fields, "AppleSerialNumber", plist_copy(node));
 	node = NULL;
 
-
 	// check if device has telephone capability
 	node = plist_dict_get_item(info, "TelephonyCapability");
-	if (!node || plist_get_node_type(node) != PLIST_BOOLEAN) {
+	if (!node || plist_get_node_type(node) != PLIST_BOOLEAN)
+	{
 		has_telephony_capability = 0;
-	} else {
+	}
+	else
+	{
 		plist_get_bool_val(node, &has_telephony_capability);
 	}
 	node = NULL;
 
-	if (has_telephony_capability) {
+	if (has_telephony_capability)
+	{
 		// add IMEI
 		node = plist_dict_get_item(info, "InternationalMobileEquipmentIdentity");
-		if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		if (!node || plist_get_node_type(node) != PLIST_STRING)
+		{
 			has_mobile_equipment_id = 0;
-		} else {
+		}
+		else
+		{
 			plist_dict_set_item(fields, "IMEI", plist_copy(node));
 			has_mobile_equipment_id = 1;
 		}
@@ -767,35 +874,45 @@ idevice_activation_error_t idevice_activation_request_new_from_lockdownd(idevice
 
 		// add MEID
 		node = plist_dict_get_item(info, "MobileEquipmentIdentifier");
-		if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		if (!node || plist_get_node_type(node) != PLIST_STRING)
+		{
 			if (debug_level > 0)
 				fprintf(stderr, "%s: Unable to get MEID from lockdownd\n", __func__);
-			if (!has_mobile_equipment_id) {
+			if (!has_mobile_equipment_id)
+			{
 				plist_free(fields);
 				plist_free(info);
 				return IDEVICE_ACTIVATION_E_INCOMPLETE_INFO;
 			}
-		} else {
+		}
+		else
+		{
 			plist_dict_set_item(fields, "MEID", plist_copy(node));
 		}
 		node = NULL;
 
 		// add IMSI
 		node = plist_dict_get_item(info, "InternationalMobileSubscriberIdentity");
-		if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		if (!node || plist_get_node_type(node) != PLIST_STRING)
+		{
 			if (debug_level > 0)
 				fprintf(stderr, "%s: Unable to get IMSI from lockdownd\n", __func__);
-		} else {
+		}
+		else
+		{
 			plist_dict_set_item(fields, "IMSI", plist_copy(node));
 		}
 		node = NULL;
 
 		// add ICCID
 		node = plist_dict_get_item(info, "IntegratedCircuitCardIdentity");
-		if (!node || plist_get_node_type(node) != PLIST_STRING) {
+		if (!node || plist_get_node_type(node) != PLIST_STRING)
+		{
 			if (debug_level > 0)
 				fprintf(stderr, "%s: Unable to get ICCID from lockdownd\n", __func__);
-		} else {
+		}
+		else
+		{
 			plist_dict_set_item(fields, "ICCID", plist_copy(node));
 		}
 		node = NULL;
@@ -805,7 +922,8 @@ idevice_activation_error_t idevice_activation_request_new_from_lockdownd(idevice
 
 	// add activation-info
 	err = lockdownd_get_value(lockdown, NULL, "ActivationInfo", &node);
-	if (err != LOCKDOWN_E_SUCCESS || !node || plist_get_node_type(node) != PLIST_DICT) {
+	if (err != LOCKDOWN_E_SUCCESS || !node || plist_get_node_type(node) != PLIST_DICT)
+	{
 		fprintf(stderr, "%s: Unable to get ActivationInfo from lockdownd\n", __func__);
 		plist_free(fields);
 		return IDEVICE_ACTIVATION_E_INCOMPLETE_INFO;
@@ -814,9 +932,10 @@ idevice_activation_error_t idevice_activation_request_new_from_lockdownd(idevice
 	plist_free(node);
 	node = NULL;
 
-	idevice_activation_request* tmp_request = (idevice_activation_request*) malloc(sizeof(idevice_activation_request));
+	idevice_activation_request *tmp_request = (idevice_activation_request *)malloc(sizeof(idevice_activation_request));
 
-	if (!tmp_request) {
+	if (!tmp_request)
+	{
 		plist_free(fields);
 		return IDEVICE_ACTIVATION_E_OUT_OF_MEMORY;
 	}
@@ -830,14 +949,15 @@ idevice_activation_error_t idevice_activation_request_new_from_lockdownd(idevice
 	return IDEVICE_ACTIVATION_E_SUCCESS;
 }
 
-idevice_activation_error_t idevice_activation_drm_handshake_request_new(idevice_activation_client_type_t client_type, idevice_activation_request_t* request)
+idevice_activation_error_t idevice_activation_drm_handshake_request_new(idevice_activation_client_type_t client_type, idevice_activation_request_t *request)
 {
 	if (!request)
 		return IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 
-	idevice_activation_request_t tmp_request = (idevice_activation_request_t) malloc(sizeof(idevice_activation_request));
+	idevice_activation_request_t tmp_request = (idevice_activation_request_t)malloc(sizeof(idevice_activation_request));
 
-	if (!tmp_request) {
+	if (!tmp_request)
+	{
 		return IDEVICE_ACTIVATION_E_OUT_OF_MEMORY;
 	}
 
@@ -859,7 +979,7 @@ void idevice_activation_request_free(idevice_activation_request_t request)
 	free(request);
 }
 
-void idevice_activation_request_get_fields(idevice_activation_request_t request, plist_t* fields)
+void idevice_activation_request_get_fields(idevice_activation_request_t request, plist_t *fields)
 {
 	if (!request || !fields)
 		return;
@@ -872,18 +992,21 @@ void idevice_activation_request_set_fields(idevice_activation_request_t request,
 	if (!request || !fields)
 		return;
 
-	if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED) {
+	if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED)
+	{
 		// if at least one of the new fields has a different type than string, we have to change the type
 		plist_dict_iter iter = NULL;
 		plist_dict_new_iter(fields, &iter);
 		plist_t item = NULL;
-		do {
+		do
+		{
 			plist_dict_next_item(fields, iter, NULL, &item);
-			if (item && plist_get_node_type(item) != PLIST_STRING) {
+			if (item && plist_get_node_type(item) != PLIST_STRING)
+			{
 				request->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_MULTIPART_FORMDATA;
 				break;
 			}
-		} while(item);
+		} while (item);
 	}
 
 	plist_dict_merge(&request->fields, fields);
@@ -896,13 +1019,14 @@ void idevice_activation_request_set_fields_from_response(idevice_activation_requ
 
 	plist_t response_fields = NULL;
 	idevice_activation_response_get_fields(response, &response_fields);
-	if (response_fields) {
+	if (response_fields)
+	{
 		idevice_activation_request_set_fields(request, response_fields);
 		free(response_fields);
 	}
 }
 
-void idevice_activation_request_set_field(idevice_activation_request_t request, const char* key, const char* value)
+void idevice_activation_request_set_field(idevice_activation_request_t request, const char *key, const char *value)
 {
 	if (!request || !key || !value)
 		return;
@@ -910,18 +1034,21 @@ void idevice_activation_request_set_field(idevice_activation_request_t request, 
 	plist_dict_set_item(request->fields, key, plist_new_string(value));
 }
 
-void idevice_activation_request_get_field(idevice_activation_request_t request, const char* key, char** value)
+void idevice_activation_request_get_field(idevice_activation_request_t request, const char *key, char **value)
 {
 	if (!request || !key || !value)
 		return;
 
-	char* tmp_value = NULL;
+	char *tmp_value = NULL;
 
 	plist_t item = plist_dict_get_item(request->fields, key);
 
-	if (item && plist_get_node_type(item) == PLIST_STRING) {
+	if (item && plist_get_node_type(item) == PLIST_STRING)
+	{
 		plist_get_string_val(item, &tmp_value);
-	} else {
+	}
+	else
+	{
 		uint32_t data_size = 0;
 		plist_to_xml(item, &tmp_value, &data_size);
 		plist_strip_xml(&tmp_value);
@@ -930,7 +1057,7 @@ void idevice_activation_request_get_field(idevice_activation_request_t request, 
 	*value = tmp_value;
 }
 
-void idevice_activation_request_get_url(idevice_activation_request_t request, const char** url)
+void idevice_activation_request_get_url(idevice_activation_request_t request, const char **url)
 {
 	if (!request || !url)
 		return;
@@ -938,7 +1065,7 @@ void idevice_activation_request_get_url(idevice_activation_request_t request, co
 	*url = request->url;
 }
 
-void idevice_activation_request_set_url(idevice_activation_request_t request, const char* url)
+void idevice_activation_request_set_url(idevice_activation_request_t request, const char *url)
 {
 	if (!request || !url)
 		return;
@@ -947,14 +1074,15 @@ void idevice_activation_request_set_url(idevice_activation_request_t request, co
 	request->url = strdup(url);
 }
 
-idevice_activation_error_t idevice_activation_response_new(idevice_activation_response_t* response)
+idevice_activation_error_t idevice_activation_response_new(idevice_activation_response_t *response)
 {
 	if (!response)
 		return IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 
-	idevice_activation_response_t tmp_response = (idevice_activation_response_t) malloc(sizeof(idevice_activation_response));
+	idevice_activation_response_t tmp_response = (idevice_activation_response_t)malloc(sizeof(idevice_activation_response));
 
-	if (!tmp_response) {
+	if (!tmp_response)
+	{
 		return IDEVICE_ACTIVATION_E_OUT_OF_MEMORY;
 	}
 
@@ -978,7 +1106,7 @@ idevice_activation_error_t idevice_activation_response_new(idevice_activation_re
 	return IDEVICE_ACTIVATION_E_SUCCESS;
 }
 
-idevice_activation_error_t idevice_activation_response_new_from_html(const char* content, idevice_activation_response_t* response)
+idevice_activation_error_t idevice_activation_response_new_from_html(const char *content, idevice_activation_response_t *response)
 {
 	if (!content || !response)
 		return IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
@@ -987,14 +1115,16 @@ idevice_activation_error_t idevice_activation_response_new_from_html(const char*
 	idevice_activation_error_t result = IDEVICE_ACTIVATION_E_SUCCESS;
 
 	result = idevice_activation_response_new(&tmp_response);
-	if (result != IDEVICE_ACTIVATION_E_SUCCESS) {
+	if (result != IDEVICE_ACTIVATION_E_SUCCESS)
+	{
 		return result;
 	}
 
 	const size_t tmp_size = strlen(content);
-	char* tmp_content = (char*) malloc(sizeof(char) * tmp_size);
+	char *tmp_content = (char *)malloc(sizeof(char) * tmp_size);
 
-	if (!tmp_content) {
+	if (!tmp_content)
+	{
 		idevice_activation_response_free(tmp_response);
 		return IDEVICE_ACTIVATION_E_OUT_OF_MEMORY;
 	}
@@ -1006,7 +1136,8 @@ idevice_activation_error_t idevice_activation_response_new_from_html(const char*
 	tmp_response->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_HTML;
 
 	result = idevice_activation_parse_html_response(tmp_response);
-	if (result != IDEVICE_ACTIVATION_E_SUCCESS) {
+	if (result != IDEVICE_ACTIVATION_E_SUCCESS)
+	{
 		idevice_activation_response_free(tmp_response);
 		return result;
 	}
@@ -1016,13 +1147,14 @@ idevice_activation_error_t idevice_activation_response_new_from_html(const char*
 	return result;
 }
 
-idevice_activation_error_t idevice_activation_response_to_buffer(idevice_activation_response_t response, char** buffer, size_t* size)
+idevice_activation_error_t idevice_activation_response_to_buffer(idevice_activation_response_t response, char **buffer, size_t *size)
 {
 	if (!response || !buffer || !size)
 		return IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 
-	char* tmp_buffer = (char*) malloc(sizeof(char) * response->raw_content_size);
-	if (!tmp_buffer) {
+	char *tmp_buffer = (char *)malloc(sizeof(char) * response->raw_content_size);
+	if (!tmp_buffer)
+	{
 		return IDEVICE_ACTIVATION_E_OUT_OF_MEMORY;
 	}
 
@@ -1052,7 +1184,7 @@ void idevice_activation_response_free(idevice_activation_response_t response)
 	free(response);
 }
 
-void idevice_activation_response_get_field(idevice_activation_response_t response, const char* key, char** value)
+void idevice_activation_response_get_field(idevice_activation_response_t response, const char *key, char **value)
 {
 	if (!response || !key || !value)
 		return;
@@ -1060,43 +1192,47 @@ void idevice_activation_response_get_field(idevice_activation_response_t respons
 	*value = NULL;
 	plist_t item = plist_dict_get_item(response->fields, key);
 
-	if (item && plist_get_node_type(item) == PLIST_STRING) {
+	if (item && plist_get_node_type(item) == PLIST_STRING)
+	{
 		plist_get_string_val(item, value);
 	}
 }
 
-void idevice_activation_response_get_fields(idevice_activation_response_t response, plist_t* fields)
+void idevice_activation_response_get_fields(idevice_activation_response_t response, plist_t *fields)
 {
-	if (response && response->fields && fields) {
+	if (response && response->fields && fields)
+	{
 		*fields = plist_copy(response->fields);
 	}
 }
 
-void idevice_activation_response_get_label(idevice_activation_response_t response, const char* key, char** value)
+void idevice_activation_response_get_label(idevice_activation_response_t response, const char *key, char **value)
 {
 	if (!response || !key || !value)
 		return;
 
 	*value = NULL;
 	plist_t item = plist_dict_get_item(response->labels, key);
-	if (item) {
+	if (item)
+	{
 		plist_get_string_val(item, value);
 	}
 }
 
-void idevice_activation_response_get_placeholder(idevice_activation_response_t response, const char* key, char** value)
+void idevice_activation_response_get_placeholder(idevice_activation_response_t response, const char *key, char **value)
 {
 	if (!response || !key || !value)
 		return;
 
 	*value = NULL;
 	plist_t item = plist_dict_get_item(response->labels_placeholder, key);
-	if (item) {
+	if (item)
+	{
 		plist_get_string_val(item, value);
 	}
 }
 
-void idevice_activation_response_get_title(idevice_activation_response_t response, const char** title)
+void idevice_activation_response_get_title(idevice_activation_response_t response, const char **title)
 {
 	if (!response || !title)
 		return;
@@ -1104,7 +1240,7 @@ void idevice_activation_response_get_title(idevice_activation_response_t respons
 	*title = response->title;
 }
 
-void idevice_activation_response_get_description(idevice_activation_response_t response, const char** description)
+void idevice_activation_response_get_description(idevice_activation_response_t response, const char **description)
 {
 	if (!response || !description)
 		return;
@@ -1112,19 +1248,22 @@ void idevice_activation_response_get_description(idevice_activation_response_t r
 	*description = response->description;
 }
 
-void idevice_activation_response_get_activation_record(idevice_activation_response_t response, plist_t* activation_record)
+void idevice_activation_response_get_activation_record(idevice_activation_response_t response, plist_t *activation_record)
 {
 	if (!response || !activation_record)
 		return;
 
-	if (response->activation_record) {
+	if (response->activation_record)
+	{
 		*activation_record = plist_copy(response->activation_record);
-	} else {
+	}
+	else
+	{
 		*activation_record = NULL;
 	}
 }
 
-void idevice_activation_response_get_headers(idevice_activation_response_t response, plist_t* headers)
+void idevice_activation_response_get_headers(idevice_activation_response_t response, plist_t *headers)
 {
 	if (!response || !headers)
 		return;
@@ -1148,7 +1287,7 @@ int idevice_activation_response_is_authentication_required(idevice_activation_re
 	return response->is_auth_required;
 }
 
-int idevice_activation_response_field_requires_input(idevice_activation_response_t response, const char* key)
+int idevice_activation_response_field_requires_input(idevice_activation_response_t response, const char *key)
 {
 	if (!response || !key)
 		return 0;
@@ -1156,7 +1295,7 @@ int idevice_activation_response_field_requires_input(idevice_activation_response
 	return (plist_dict_get_item(response->fields_require_input, key) ? 1 : 0);
 }
 
-int idevice_activation_response_field_secure_input(idevice_activation_response_t response, const char* key)
+int idevice_activation_response_field_secure_input(idevice_activation_response_t response, const char *key)
 {
 	if (!response || !key)
 		return 0;
@@ -1172,56 +1311,68 @@ int idevice_activation_response_has_errors(idevice_activation_response_t respons
 	return response->has_errors;
 }
 
-idevice_activation_error_t idevice_activation_send_request(idevice_activation_request_t request, idevice_activation_response_t* response)
+idevice_activation_error_t idevice_activation_send_request(idevice_activation_request_t request, idevice_activation_response_t *response)
 {
 	idevice_activation_error_t result = IDEVICE_ACTIVATION_E_SUCCESS;
 
 	// check arguments
-	if (!request || !response) {
+	if (!request || !response)
+	{
 		return IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 	}
 
 	plist_dict_iter iter = NULL;
 	plist_dict_new_iter(request->fields, &iter);
-	if (!iter) {
+	if (!iter)
+	{
 		return IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 	}
 
-	CURL* handle = curl_easy_init();
-	struct curl_httppost* form = NULL;
-	struct curl_slist* slist = NULL;
+	CURL *handle = curl_easy_init();
+	struct curl_httppost *form = NULL;
+	struct curl_slist *slist = NULL;
 
-	if (!handle) {
+	if (!handle)
+	{
 		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 		goto cleanup;
 	}
 
-	switch (request->client_type) {
-		case IDEVICE_ACTIVATION_CLIENT_MOBILE_ACTIVATION:
-			curl_easy_setopt(handle, CURLOPT_USERAGENT, IDEVICE_ACTIVATION_USER_AGENT_IOS);
-			break;
-		case IDEVICE_ACTIVATION_CLIENT_ITUNES:
-			curl_easy_setopt(handle, CURLOPT_USERAGENT, IDEVICE_ACTIVATION_USER_AGENT_ITUNES);
-			break;
-		default:
-			result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
-			goto cleanup;
+	switch (request->client_type)
+	{
+	case IDEVICE_ACTIVATION_CLIENT_MOBILE_ACTIVATION:
+		curl_easy_setopt(handle, CURLOPT_USERAGENT, IDEVICE_ACTIVATION_USER_AGENT_IOS);
+		break;
+	case IDEVICE_ACTIVATION_CLIENT_ITUNES:
+		curl_easy_setopt(handle, CURLOPT_USERAGENT, IDEVICE_ACTIVATION_USER_AGENT_ITUNES);
+		break;
+	default:
+		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
+		goto cleanup;
 	}
 
-	char* key = NULL;
-	char* svalue = NULL;
+	char *key = NULL;
+	char *svalue = NULL;
 	plist_t value_node = NULL;
 
-	if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_MULTIPART_FORMDATA) {
-		struct curl_httppost* last = NULL;
-		do {
+	if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_MULTIPART_FORMDATA)
+	{
+		struct curl_httppost *last = NULL;
+		do
+		{
 			plist_dict_next_item(request->fields, iter, &key, &value_node);
-			if (key != NULL) {
-				if (value_node != NULL) {
+			plist_print(value_node);
+			if (key != NULL)
+			{
+				if (value_node != NULL)
+				{
 					// serialize plist node as field value
-					if (plist_get_node_type(value_node) == PLIST_STRING) {
+					if (plist_get_node_type(value_node) == PLIST_STRING)
+					{
 						plist_get_string_val(value_node, &svalue);
-					} else {
+					}
+					else
+					{
 						uint32_t data_size = 0;
 						plist_to_xml(value_node, &svalue, &data_size);
 						plist_strip_xml(&svalue);
@@ -1233,30 +1384,51 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 					svalue = NULL;
 				}
 			}
-		} while(value_node != NULL);
+		} while (value_node != NULL);
 		curl_easy_setopt(handle, CURLOPT_HTTPPOST, form);
 
-	} else if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED) {
-		char* postdata = (char*) malloc(sizeof(char));
+#ifdef _WIN32
+		// 调试输出 form 内容
+		fprintf(stderr, "[DEBUG] form pointer: %p\n", form);
+		struct curl_httppost *f = form;
+		int field_idx = 0;
+		while (f)
+		{
+			fprintf(stderr, "[DEBUG] form field %d: name='%s', contents='%s'\n", field_idx, f->name ? f->name : "(null)", f->contents ? (const char *)f->contents : "(null)");
+			f = f->next;
+			field_idx++;
+		}
+#endif
+	}
+	else if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED)
+	{
+		char *postdata = (char *)malloc(sizeof(char));
 		postdata[0] = '\0';
-		do {
+		do
+		{
 			plist_dict_next_item(request->fields, iter, &key, &value_node);
-			if (key != NULL) {
-				if (value_node != NULL) {
+			if (key != NULL)
+			{
+				if (value_node != NULL)
+				{
 					// serialize plist node as field value
-					if (plist_get_node_type(value_node) == PLIST_STRING) {
+					if (plist_get_node_type(value_node) == PLIST_STRING)
+					{
 						plist_get_string_val(value_node, &svalue);
-					} else {
+					}
+					else
+					{
 						// only strings supported
 						free(postdata);
 						result = IDEVICE_ACTIVATION_E_UNSUPPORTED_FIELD_TYPE;
 						goto cleanup;
 					}
 
-					char* value_encoded = urlencode(svalue);
-					if (value_encoded) {
+					char *value_encoded = urlencode(svalue);
+					if (value_encoded)
+					{
 						const size_t new_size = strlen(postdata) + strlen(key) + strlen(value_encoded) + 3;
-						postdata = (char*) realloc(postdata, new_size);
+						postdata = (char *)realloc(postdata, new_size);
 						sprintf(&postdata[strlen(postdata)], "%s=%s&", key, value_encoded);
 						free(value_encoded);
 					}
@@ -1265,7 +1437,7 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 					svalue = NULL;
 				}
 			}
-		} while(value_node != NULL);
+		} while (value_node != NULL);
 
 		// remove the last '&'
 		const size_t postdata_len = strlen(postdata);
@@ -1275,7 +1447,9 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 		curl_easy_setopt(handle, CURLOPT_POST, 1);
 		curl_easy_setopt(handle, CURLOPT_POSTFIELDS, postdata);
 		curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, strlen(postdata));
-	} else if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_PLIST) {
+	}
+	else if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_PLIST)
+	{
 		char *postdata = NULL;
 		uint32_t postdata_len = 0;
 		plist_to_xml(request->fields, &postdata, &postdata_len);
@@ -1286,14 +1460,16 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 		slist = curl_slist_append(slist, "Accept: application/xml");
 		curl_easy_setopt(handle, CURLOPT_HTTPHEADER, slist);
 	}
-	else {
+	else
+	{
 		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
 		goto cleanup;
 	}
 
 	idevice_activation_response_t tmp_response = NULL;
 	result = idevice_activation_response_new(&tmp_response);
-	if (result != IDEVICE_ACTIVATION_E_SUCCESS) {
+	if (result != IDEVICE_ACTIVATION_E_SUCCESS)
+	{
 		goto cleanup;
 	}
 
@@ -1307,7 +1483,8 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);
 
 	// enable communication debugging
-	if (debug_level > 0) {
+	if (debug_level > 0)
+	{
 		curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
 		curl_easy_setopt(handle, CURLOPT_DEBUGFUNCTION, idevice_activation_curl_debug_callback);
 	}
@@ -1315,7 +1492,8 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 	curl_easy_perform(handle);
 
 	result = idevice_activation_parse_raw_response(tmp_response);
-	if (result != IDEVICE_ACTIVATION_E_SUCCESS) {
+	if (result != IDEVICE_ACTIVATION_E_SUCCESS)
+	{
 		goto cleanup;
 	}
 
