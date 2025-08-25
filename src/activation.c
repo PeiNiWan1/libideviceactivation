@@ -31,9 +31,6 @@
 #include <libxml/xpath.h>
 #include <libxml/HTMLtree.h>
 #include <curl/curl.h>
-#if defined(_WIN32)
-#include <curl/mime.h>
-#endif
 
 #ifdef IDEVICE_ACTIVATION_STATIC
 #define IDEVICE_ACTIVATION_API
