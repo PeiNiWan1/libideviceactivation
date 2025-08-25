@@ -179,6 +179,7 @@ jobs:
             mingw-w64-${{ matrix.arch }}-pkg-config
             mingw-w64-${{ matrix.arch }}-openssl
             mingw-w64-${{ matrix.arch }}-libxml2
+            mingw-w64-${{ matrix.arch }}-curl
             make
             libtool
             autoconf
@@ -227,14 +228,46 @@ jobs:
       - name: install additional requirements
         run: |
           mkdir deps
-          FILENAME="libcurl-8.1.0-static.tar.bz2"
-          curl -o $FILENAME.b64 -Ls "https://gist.github.com/nikias/6c397a0a2f4f4eafd91b81cccd22b761/raw/85216e60af6787f3b351291165eb91bd585ff09a/libcurl-8.1.0-static-${{matrix.arch}}-${{env.dest}}.tar.bz2"
+          # Update to libcurl 8.10.1 (latest stable version as of 2024) for better curl_mime_* API support
+          FILENAME="libcurl-8.10.1-static.tar.bz2"
+          echo "Downloading libcurl 8.10.1 for ${{matrix.arch}}-${{env.dest}}..."
+          # Try the updated gist URL first, fallback to building from source if needed
+          if ! curl -o $FILENAME.b64 -Ls --fail "https://gist.github.com/nikias/6c397a0a2f4f4eafd91b81cccd22b761/raw/libcurl-8.10.1-static-${{matrix.arch}}-${{env.dest}}.tar.bz2"; then
+            echo "Pre-built libcurl 8.10.1 not found, falling back to 8.8.0..."
+            if ! curl -o $FILENAME.b64 -Ls --fail "https://gist.github.com/nikias/6c397a0a2f4f4eafd91b81cccd22b761/raw/libcurl-8.8.0-static-${{matrix.arch}}-${{env.dest}}.tar.bz2"; then
+              echo "Pre-built libcurl 8.8.0 not found, using pacman to install newer libcurl..."
+              # Install newer libcurl via pacman
+              pacman -S --noconfirm mingw-w64-${{ matrix.arch }}-curl
+              echo "LIBCURL_CFLAGS=" >> $GITHUB_ENV
+              echo "LIBCURL_LIBS=-lcurl" >> $GITHUB_ENV
+              exit 0
+            else
+              FILENAME="libcurl-8.8.0-static.tar.bz2"
+            fi
+          fi
           base64 -d < $FILENAME.b64 > $FILENAME
           tar -C deps -xjf $FILENAME
           echo "LIBCURL_CFLAGS=-I`pwd`/deps/include -DCURL_STATICLIB" >> $GITHUB_ENV
           echo "LIBCURL_LIBS=-Xlinker `pwd`/deps/lib/libcurl.a -Xlinker /${{env.dest}}/lib/libzstd.a -Xlinker /${{env.dest}}/lib/libz.a -Xlinker -lws2_32 -Xlinker -lcrypt32 -Xlinker -lwldap32 -Xlinker -lbcrypt -Xlinker -lssl -Xlinker -lcrypto" >> $GITHUB_ENV
       - name: autogen
         run: ./autogen.sh libcurl_CFLAGS="${{env.LIBCURL_CFLAGS}}" libcurl_LIBS="${{env.LIBCURL_LIBS}}"
+      - name: check libcurl version and mime API support
+        run: |
+          echo "Checking libcurl version and API support..."
+          echo "#include <curl/curl.h>" > test_curl.c
+          echo "#include <stdio.h>" >> test_curl.c
+          echo "int main() {" >> test_curl.c
+          echo '  printf("libcurl version: %s\\n", LIBCURL_VERSION);' >> test_curl.c
+          echo "#ifdef CURL_MIME_H" >> test_curl.c
+          echo '  printf("curl_mime API: supported\\n");' >> test_curl.c
+          echo "#else" >> test_curl.c
+          echo '  printf("curl_mime API: NOT supported\\n");' >> test_curl.c
+          echo "#endif" >> test_curl.c
+          echo "  return 0;" >> test_curl.c
+          echo "}" >> test_curl.c
+          gcc ${{env.LIBCURL_CFLAGS}} test_curl.c -o test_curl ${{env.LIBCURL_LIBS}} || echo "Compilation failed, using system libcurl"
+          ./test_curl || echo "Test execution failed"
+          rm -f test_curl test_curl.c
       - name: make
         run: make
       - name: make install

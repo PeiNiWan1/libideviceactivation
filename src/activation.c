@@ -1331,7 +1331,7 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 	}
 
 	CURL *handle = curl_easy_init();
-	struct curl_httppost *form = NULL;
+	curl_mime *mime = NULL;
 	struct curl_slist *slist = NULL;
 
 	if (!handle)
@@ -1359,7 +1359,7 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 
 	if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_MULTIPART_FORMDATA)
 	{
-		struct curl_httppost *last = NULL;
+		mime = curl_mime_init(handle);
 		do
 		{
 			plist_dict_next_item(request->fields, iter, &key, &value_node);
@@ -1379,23 +1379,24 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 						plist_to_xml(value_node, &svalue, &data_size);
 						plist_strip_xml(&svalue);
 					}
+
+					curl_mimepart *part = curl_mime_addpart(mime);
+					curl_mime_name(part, key);
+
 					// Special handling for activation-info field which might be large
 					if (strcmp(key, "activation-info") == 0 && plist_get_node_type(value_node) != PLIST_STRING)
 					{
-						// For activation-info, try to use CURLFORM_PTRCONTENTS with length
+						// For activation-info, use raw XML data
 						char *xml_data = NULL;
 						uint32_t xml_len = 0;
 						plist_to_xml(value_node, &xml_data, &xml_len);
 						if (xml_data && xml_len > 0)
 						{
-							int formadd_ret = curl_formadd(&form, &last,
-																						 CURLFORM_COPYNAME, key,
-																						 CURLFORM_PTRCONTENTS, xml_data,
-																						 CURLFORM_CONTENTSLENGTH, (long)xml_len,
-																						 CURLFORM_END);
-							if (formadd_ret != CURL_FORMADD_OK)
+							CURLcode result_code = curl_mime_data(part, xml_data, xml_len);
+							if (result_code != CURLE_OK)
 							{
-								fprintf(stderr, "[ERROR] (form) Failed to add field %s with raw XML: curl_formadd error code %d, field size: %u bytes\n", key, formadd_ret, xml_len);
+								fprintf(stderr, "[ERROR] (mime) Failed to add field %s with raw XML: %s, field size: %u bytes\n",
+												key, curl_easy_strerror(result_code), xml_len);
 							}
 							else
 							{
@@ -1409,15 +1410,11 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 					}
 					else
 					{
-						int formadd_ret = curl_formadd(&form, &last, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, svalue, CURLFORM_END);
-						if (formadd_ret != CURL_FORMADD_OK)
+						CURLcode result_code = curl_mime_data(part, svalue, CURL_ZERO_TERMINATED);
+						if (result_code != CURLE_OK)
 						{
-							fprintf(stderr, "[ERROR] (form) Failed to add field %s: curl_formadd error code %d, field size: %zu bytes\n", key, formadd_ret, strlen(svalue));
-							// Try to continue without this field rather than failing completely
-							if (debug_level > 0)
-							{
-								fprintf(stderr, "[DEBUG] Field content preview (first 100 chars): %.100s\n", svalue);
-							}
+							fprintf(stderr, "[ERROR] (mime) Failed to add field %s: %s, field size: %zu bytes\n",
+											key, curl_easy_strerror(result_code), strlen(svalue));
 						}
 						else
 						{
@@ -1432,7 +1429,7 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 				}
 			}
 		} while (value_node != NULL);
-		curl_easy_setopt(handle, CURLOPT_HTTPPOST, form);
+		curl_easy_setopt(handle, CURLOPT_MIMEPOST, mime);
 	}
 	else if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED)
 	{
@@ -1543,12 +1540,8 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 
 cleanup:
 	free(iter);
-#ifdef _WIN32
-	// curl_mime is cleaned up automatically by libcurl after perform, but can be freed manually if needed
-#else
-	if (form)
-		curl_formfree(form);
-#endif
+	if (mime)
+		curl_mime_free(mime);
 	if (slist)
 		curl_slist_free_all(slist);
 	if (handle)
