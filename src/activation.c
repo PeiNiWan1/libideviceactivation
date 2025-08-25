@@ -31,6 +31,9 @@
 #include <libxml/xpath.h>
 #include <libxml/HTMLtree.h>
 #include <curl/curl.h>
+#if defined(_WIN32)
+#include <curl/mime.h>
+#endif
 
 #ifdef IDEVICE_ACTIVATION_STATIC
 #define IDEVICE_ACTIVATION_API
@@ -798,10 +801,6 @@ idevice_activation_error_t idevice_activation_request_new(idevice_activation_cli
 
 	tmp_request->client_type = client_type;
 	tmp_request->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED;
-// 在win平台下 使用IDEVICE_ACTIVATION_CONTENT_TYPE_PLIST
-#ifdef _WIN32
-	tmp_request->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_PLIST;
-#endif
 
 	tmp_request->url = strdup(IDEVICE_ACTIVATION_DEFAULT_URL);
 	tmp_request->fields = plist_new_dict();
@@ -1362,6 +1361,39 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 
 	if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_MULTIPART_FORMDATA)
 	{
+#ifdef _WIN32
+		// Windows: use curl_mime instead of curl_formadd
+		curl_mime *mime = curl_mime_init(handle);
+		do
+		{
+			plist_dict_next_item(request->fields, iter, &key, &value_node);
+			plist_print(value_node);
+			if (key != NULL)
+			{
+				if (value_node != NULL)
+				{
+					// serialize plist node as field value
+					if (plist_get_node_type(value_node) == PLIST_STRING)
+					{
+						plist_get_string_val(value_node, &svalue);
+					}
+					else
+					{
+						uint32_t data_size = 0;
+						plist_to_xml(value_node, &svalue, &data_size);
+						plist_strip_xml(&svalue);
+					}
+					fprintf(stderr, "[DEBUG] (mime) Sending field: %s, value length: %zu\n", key, strlen(svalue));
+					curl_mimepart *part = curl_mime_addpart(mime);
+					curl_mime_name(part, key);
+					curl_mime_data(part, svalue, CURL_ZERO_TERMINATED);
+					free(svalue);
+					svalue = NULL;
+				}
+			}
+		} while (value_node != NULL);
+		curl_easy_setopt(handle, CURLOPT_MIMEPOST, mime);
+#else
 		struct curl_httppost *last = NULL;
 		do
 		{
@@ -1382,23 +1414,14 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 						plist_to_xml(value_node, &svalue, &data_size);
 						plist_strip_xml(&svalue);
 					}
-// 打印svalue
-#ifdef _WIN32
-					fprintf(stderr, "[DEBUG] Sending field: %s, value length: %zu\n", key, strlen(svalue));
-#endif
 					int formadd_ret = curl_formadd(&form, &last, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, svalue, CURLFORM_END);
-#ifdef _WIN32
-					if (formadd_ret != 0)
-					{
-						fprintf(stderr, "[DEBUG] curl_formadd return: %d (should be 0)\n", formadd_ret);
-					}
-#endif
 					free(svalue);
 					svalue = NULL;
 				}
 			}
 		} while (value_node != NULL);
 		curl_easy_setopt(handle, CURLOPT_HTTPPOST, form);
+#endif
 	}
 	else if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED)
 	{
@@ -1503,8 +1526,12 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 
 cleanup:
 	free(iter);
+#ifdef _WIN32
+	// curl_mime is cleaned up automatically by libcurl after perform, but can be freed manually if needed
+#else
 	if (form)
 		curl_formfree(form);
+#endif
 	if (slist)
 		curl_slist_free_all(slist);
 	if (handle)
