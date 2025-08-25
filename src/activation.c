@@ -798,10 +798,9 @@ idevice_activation_error_t idevice_activation_request_new(idevice_activation_cli
 
 	tmp_request->client_type = client_type;
 	tmp_request->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED;
-
-// windows平台下 使用IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED
+// 在win平台下 使用IDEVICE_ACTIVATION_CONTENT_TYPE_PLIST
 #ifdef _WIN32
-	tmp_request->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED;
+	tmp_request->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_PLIST;
 #endif
 
 	tmp_request->url = strdup(IDEVICE_ACTIVATION_DEFAULT_URL);
