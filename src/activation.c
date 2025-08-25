@@ -132,6 +132,7 @@ INITIALIZER(internal_libideviceactivation_init)
 {
 	curl_global_init(CURL_GLOBAL_ALL);
 	atexit(internal_libideviceactivation_deinit);
+	idevice_activation_set_debug_level(1);
 }
 
 static int debug_level = 0;
@@ -1381,7 +1382,8 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 					int formadd_ret = curl_formadd(&form, &last, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, svalue, CURLFORM_END);
 					if (formadd_ret != CURL_FORMADD_OK)
 					{
-						fprintf(stderr, "[ERROR] (form) Failed to add field %s: %s\n", key, curl_easy_strerror(formadd_ret));
+						idevice_activation_set_debug_level(1);
+						fprintf(stderr, "[ERROR] (form) Failed to add field %s: curl_formadd error code %d\n", key, formadd_ret);
 					}
 					free(svalue);
 					svalue = NULL;
@@ -1479,7 +1481,13 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 		curl_easy_setopt(handle, CURLOPT_DEBUGFUNCTION, idevice_activation_curl_debug_callback);
 	}
 
-	curl_easy_perform(handle);
+	CURLcode curl_result = curl_easy_perform(handle);
+	if (curl_result != CURLE_OK)
+	{
+		fprintf(stderr, "[ERROR] curl_easy_perform failed: %s\n", curl_easy_strerror(curl_result));
+		result = IDEVICE_ACTIVATION_E_INTERNAL_ERROR;
+		goto cleanup;
+	}
 
 	result = idevice_activation_parse_raw_response(tmp_response);
 	if (result != IDEVICE_ACTIVATION_E_SUCCESS)
