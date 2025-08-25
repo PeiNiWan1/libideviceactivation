@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
 #include <libxml/HTMLtree.h>
@@ -799,6 +798,12 @@ idevice_activation_error_t idevice_activation_request_new(idevice_activation_cli
 
 	tmp_request->client_type = client_type;
 	tmp_request->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED;
+
+// windows平台下 使用IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED
+#ifdef _WIN32
+	tmp_request->content_type = IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED;
+#endif
+
 	tmp_request->url = strdup(IDEVICE_ACTIVATION_DEFAULT_URL);
 	tmp_request->fields = plist_new_dict();
 	*request = tmp_request;
@@ -1358,18 +1363,6 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 
 	if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_MULTIPART_FORMDATA)
 	{
-#ifdef _WIN32
-		// Windows 下直接用 application/x-apple-plist 方式 POST plist，避免 multipart/form-data 大字段失败
-		char *postdata = NULL;
-		uint32_t postdata_len = 0;
-		plist_to_xml(request->fields, &postdata, &postdata_len);
-		curl_easy_setopt(handle, CURLOPT_POST, 1);
-		curl_easy_setopt(handle, CURLOPT_POSTFIELDS, postdata);
-		curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, postdata_len);
-		slist = curl_slist_append(NULL, "Content-Type: application/x-apple-plist");
-		slist = curl_slist_append(slist, "Accept: application/xml");
-		curl_easy_setopt(handle, CURLOPT_HTTPHEADER, slist);
-#else
 		struct curl_httppost *last = NULL;
 		do
 		{
@@ -1390,14 +1383,23 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 						plist_to_xml(value_node, &svalue, &data_size);
 						plist_strip_xml(&svalue);
 					}
+// 打印svalue
+#ifdef _WIN32
+					fprintf(stderr, "[DEBUG] Sending field: %s, value length: %zu\n", key, strlen(svalue));
+#endif
 					int formadd_ret = curl_formadd(&form, &last, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, svalue, CURLFORM_END);
+#ifdef _WIN32
+					if (formadd_ret != 0)
+					{
+						fprintf(stderr, "[DEBUG] curl_formadd return: %d (should be 0)\n", formadd_ret);
+					}
+#endif
 					free(svalue);
 					svalue = NULL;
 				}
 			}
 		} while (value_node != NULL);
 		curl_easy_setopt(handle, CURLOPT_HTTPPOST, form);
-#endif
 	}
 	else if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED)
 	{
