@@ -1433,7 +1433,6 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 			}
 		} while (value_node != NULL);
 		curl_easy_setopt(handle, CURLOPT_HTTPPOST, form);
-#endif
 	}
 	else if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED)
 	{
