@@ -234,15 +234,17 @@ jobs:
       run: |
         curl --version 
         openssl version
-    - name: install additional requirements
+    - name: build libcurl from source
       run: |
-          mkdir deps
-          FILENAME="libcurl-8.1.0-static.tar.bz2"
-          curl -o $FILENAME.b64 -Ls "https://gist.github.com/nikias/6c397a0a2f4f4eafd91b81cccd22b761/raw/85216e60af6787f3b351291165eb91bd585ff09a/libcurl-8.1.0-static-${{matrix.arch}}-${{env.dest}}.tar.bz2"
-          base64 -d < $FILENAME.b64 > $FILENAME
-          tar -C deps -xjf $FILENAME
-          echo "LIBCURL_CFLAGS=-I`pwd`/deps/include -DCURL_STATICLIB" >> $GITHUB_ENV
-          echo "LIBCURL_LIBS=-Xlinker `pwd`/deps/lib/libcurl.a -Xlinker /${{env.dest}}/lib/libzstd.a -Xlinker /${{env.dest}}/lib/libz.a -Xlinker -lws2_32 -Xlinker -lcrypt32 -Xlinker -lwldap32 -Xlinker -lbcrypt -Xlinker -lssl -Xlinker -lcrypto" >> $GITHUB_ENV
+        curl -LO https://curl.se/download/curl-8.7.1.tar.gz
+        tar -xzf curl-8.7.1.tar.gz
+        cd curl-8.7.1
+        ./configure --prefix=$PWD/../deps --with-ssl --enable-static --disable-shared --enable-http --enable-mime
+        make -j2
+        make install
+        cd ..
+        echo "LIBCURL_CFLAGS=-I`pwd`/deps/include -DCURL_STATICLIB" >> $GITHUB_ENV
+        echo "LIBCURL_LIBS=-Xlinker `pwd`/deps/lib/libcurl.a -Xlinker /${{env.dest}}/lib/libzstd.a -Xlinker /${{env.dest}}/lib/libz.a -Xlinker -lws2_32 -Xlinker -lcrypt32 -Xlinker -lwldap32 -Xlinker -lbcrypt -Xlinker -lssl -Xlinker -lcrypto" >> $GITHUB_ENV
     - name: autogen
       run: ./autogen.sh libcurl_CFLAGS="${{env.LIBCURL_CFLAGS}}" libcurl_LIBS="${{env.LIBCURL_LIBS}}"
     - name: make
