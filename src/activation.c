@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
 #include <libxml/HTMLtree.h>
@@ -1357,6 +1358,18 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 
 	if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_MULTIPART_FORMDATA)
 	{
+#ifdef _WIN32
+		// Windows 下直接用 application/x-apple-plist 方式 POST plist，避免 multipart/form-data 大字段失败
+		char *postdata = NULL;
+		uint32_t postdata_len = 0;
+		plist_to_xml(request->fields, &postdata, &postdata_len);
+		curl_easy_setopt(handle, CURLOPT_POST, 1);
+		curl_easy_setopt(handle, CURLOPT_POSTFIELDS, postdata);
+		curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, postdata_len);
+		slist = curl_slist_append(NULL, "Content-Type: application/x-apple-plist");
+		slist = curl_slist_append(slist, "Accept: application/xml");
+		curl_easy_setopt(handle, CURLOPT_HTTPHEADER, slist);
+#else
 		struct curl_httppost *last = NULL;
 		do
 		{
@@ -1377,35 +1390,13 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 						plist_to_xml(value_node, &svalue, &data_size);
 						plist_strip_xml(&svalue);
 					}
-// 打印svalue
-#ifdef _WIN32
-					fprintf(stderr, "[DEBUG] Sending field: %s, value length: %zu\n", key, strlen(svalue));
-#endif
 					int formadd_ret = curl_formadd(&form, &last, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, svalue, CURLFORM_END);
-#ifdef _WIN32
-					if (formadd_ret != 0)
-					{
-						fprintf(stderr, "[DEBUG] curl_formadd return: %d (should be 0)\n", formadd_ret);
-					}
-#endif
 					free(svalue);
 					svalue = NULL;
 				}
 			}
 		} while (value_node != NULL);
 		curl_easy_setopt(handle, CURLOPT_HTTPPOST, form);
-
-#ifdef _WIN32
-		// 调试输出 form 内容
-		fprintf(stderr, "[DEBUG] form pointer: %p\n", form);
-		struct curl_httppost *f = form;
-		int field_idx = 0;
-		while (f)
-		{
-			fprintf(stderr, "[DEBUG] form field %d: name='%s', contents='%s'\n", field_idx, f->name ? f->name : "(null)", f->contents ? (const char *)f->contents : "(null)");
-			f = f->next;
-			field_idx++;
-		}
 #endif
 	}
 	else if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_URL_ENCODED)
