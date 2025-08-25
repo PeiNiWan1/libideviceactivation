@@ -1379,11 +1379,53 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 						plist_to_xml(value_node, &svalue, &data_size);
 						plist_strip_xml(&svalue);
 					}
-					int formadd_ret = curl_formadd(&form, &last, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, svalue, CURLFORM_END);
-					if (formadd_ret != CURL_FORMADD_OK)
+					// Special handling for activation-info field which might be large
+					if (strcmp(key, "activation-info") == 0 && plist_get_node_type(value_node) != PLIST_STRING)
 					{
-						idevice_activation_set_debug_level(1);
-						fprintf(stderr, "[ERROR] (form) Failed to add field %s: curl_formadd error code %d\n", key, formadd_ret);
+						// For activation-info, try to use CURLFORM_PTRCONTENTS with length
+						char *xml_data = NULL;
+						uint32_t xml_len = 0;
+						plist_to_xml(value_node, &xml_data, &xml_len);
+						if (xml_data && xml_len > 0)
+						{
+							int formadd_ret = curl_formadd(&form, &last,
+																						 CURLFORM_COPYNAME, key,
+																						 CURLFORM_PTRCONTENTS, xml_data,
+																						 CURLFORM_CONTENTSLENGTH, (long)xml_len,
+																						 CURLFORM_END);
+							if (formadd_ret != CURL_FORMADD_OK)
+							{
+								fprintf(stderr, "[ERROR] (form) Failed to add field %s with raw XML: curl_formadd error code %d, field size: %u bytes\n", key, formadd_ret, xml_len);
+							}
+							else
+							{
+								if (debug_level > 0)
+								{
+									fprintf(stderr, "[DEBUG] Successfully added field %s as raw XML, size: %u bytes\n", key, xml_len);
+								}
+							}
+							free(xml_data);
+						}
+					}
+					else
+					{
+						int formadd_ret = curl_formadd(&form, &last, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, svalue, CURLFORM_END);
+						if (formadd_ret != CURL_FORMADD_OK)
+						{
+							fprintf(stderr, "[ERROR] (form) Failed to add field %s: curl_formadd error code %d, field size: %zu bytes\n", key, formadd_ret, strlen(svalue));
+							// Try to continue without this field rather than failing completely
+							if (debug_level > 0)
+							{
+								fprintf(stderr, "[DEBUG] Field content preview (first 100 chars): %.100s\n", svalue);
+							}
+						}
+						else
+						{
+							if (debug_level > 0)
+							{
+								fprintf(stderr, "[DEBUG] Successfully added field %s, size: %zu bytes\n", key, strlen(svalue));
+							}
+						}
 					}
 					free(svalue);
 					svalue = NULL;
