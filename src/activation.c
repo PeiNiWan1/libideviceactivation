@@ -1358,54 +1358,6 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 
 	if (request->content_type == IDEVICE_ACTIVATION_CONTENT_TYPE_MULTIPART_FORMDATA)
 	{
-#ifdef _WIN32
-		// Windows: use curl_mime instead of curl_formadd
-		curl_mime *mime = curl_mime_init(handle);
-		do
-		{
-			plist_dict_next_item(request->fields, iter, &key, &value_node);
-			if (key != NULL)
-			{
-				if (value_node != NULL)
-				{
-					// serialize plist node as field value
-					if (plist_get_node_type(value_node) == PLIST_STRING)
-					{
-						plist_get_string_val(value_node, &svalue);
-					}
-					else
-					{
-						uint32_t data_size = 0;
-						plist_to_xml(value_node, &svalue, &data_size);
-						plist_strip_xml(&svalue);
-					}
-					// 打印字段名、长度、前后内容摘要
-					size_t slen = strlen(svalue);
-					fprintf(stderr, "[DEBUG] (mime) Field: %s, length: %zu\n", key, slen);
-					if (slen > 0)
-					{
-						size_t preview = slen > 32 ? 32 : slen;
-						fprintf(stderr, "[DEBUG] (mime) Field %s head: %.*s\n", key, (int)preview, svalue);
-						if (slen > 64)
-						{
-							fprintf(stderr, "[DEBUG] (mime) Field %s tail: %.*s\n", key, 32, svalue + slen - 32);
-						}
-					}
-					curl_mimepart *part = curl_mime_addpart(mime);
-					curl_mime_name(part, key);
-					int res = curl_mime_data(part, svalue, CURL_ZERO_TERMINATED);
-					// 打印结果
-					if (res != CURLE_OK)
-					{
-						fprintf(stderr, "[ERROR] (mime) Failed to set data for field %s: %s\n", key, curl_easy_strerror(res));
-					}
-					free(svalue);
-					svalue = NULL;
-				}
-			}
-		} while (value_node != NULL);
-		curl_easy_setopt(handle, CURLOPT_MIMEPOST, mime);
-#endif
 		struct curl_httppost *last = NULL;
 		do
 		{
@@ -1427,6 +1379,10 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 						plist_strip_xml(&svalue);
 					}
 					int formadd_ret = curl_formadd(&form, &last, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, svalue, CURLFORM_END);
+					if (formadd_ret != CURL_FORMADD_OK)
+					{
+						fprintf(stderr, "[ERROR] (form) Failed to add field %s: %s\n", key, curl_easy_strerror(formadd_ret));
+					}
 					free(svalue);
 					svalue = NULL;
 				}
