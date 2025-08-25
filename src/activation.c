@@ -1364,7 +1364,6 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 		do
 		{
 			plist_dict_next_item(request->fields, iter, &key, &value_node);
-			plist_print(value_node);
 			if (key != NULL)
 			{
 				if (value_node != NULL)
@@ -1380,17 +1379,33 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 						plist_to_xml(value_node, &svalue, &data_size);
 						plist_strip_xml(&svalue);
 					}
-					fprintf(stderr, "[DEBUG] (mime) Sending field: %s, value length: %zu\n", key, strlen(svalue));
+					// 打印字段名、长度、前后内容摘要
+					size_t slen = strlen(svalue);
+					fprintf(stderr, "[DEBUG] (mime) Field: %s, length: %zu\n", key, slen);
+					if (slen > 0)
+					{
+						size_t preview = slen > 32 ? 32 : slen;
+						fprintf(stderr, "[DEBUG] (mime) Field %s head: %.*s\n", key, (int)preview, svalue);
+						if (slen > 64)
+						{
+							fprintf(stderr, "[DEBUG] (mime) Field %s tail: %.*s\n", key, 32, svalue + slen - 32);
+						}
+					}
 					curl_mimepart *part = curl_mime_addpart(mime);
 					curl_mime_name(part, key);
-					curl_mime_data(part, svalue, CURL_ZERO_TERMINATED);
+					int res = curl_mime_data(part, svalue, CURL_ZERO_TERMINATED);
+					// 打印结果
+					if (res != CURLE_OK)
+					{
+						fprintf(stderr, "[ERROR] (mime) Failed to set data for field %s: %s\n", key, curl_easy_strerror(res));
+					}
 					free(svalue);
 					svalue = NULL;
 				}
 			}
 		} while (value_node != NULL);
 		curl_easy_setopt(handle, CURLOPT_MIMEPOST, mime);
-#else
+#endif
 		struct curl_httppost *last = NULL;
 		do
 		{
