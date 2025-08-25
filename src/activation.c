@@ -1367,9 +1367,6 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 				if (value_node != NULL)
 				{
 					// serialize plist node as field value
-#ifdef _WIN32
-					fprintf(stderr, "[DEBUG] Sending request with content type: %d\n", request->content_type);
-#endif
 					if (plist_get_node_type(value_node) == PLIST_STRING)
 					{
 						plist_get_string_val(value_node, &svalue);
@@ -1382,10 +1379,15 @@ idevice_activation_error_t idevice_activation_send_request(idevice_activation_re
 					}
 // 打印svalue
 #ifdef _WIN32
-					fprintf(stderr, "[DEBUG] Sending field: %s, value: %s\n", key, svalue);
+					fprintf(stderr, "[DEBUG] Sending field: %s, value length: %zu\n", key, strlen(svalue));
 #endif
-					curl_formadd(&form, &last, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, svalue, CURLFORM_END);
-
+					int formadd_ret = curl_formadd(&form, &last, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, svalue, CURLFORM_END);
+#ifdef _WIN32
+					if (formadd_ret != 0)
+					{
+						fprintf(stderr, "[DEBUG] curl_formadd return: %d (should be 0)\n", formadd_ret);
+					}
+#endif
 					free(svalue);
 					svalue = NULL;
 				}
