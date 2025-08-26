@@ -229,8 +229,8 @@ jobs:
           # Download and build latest libcurl static library
           CURL_VERSION="8.15.0"
 
-          # Install build dependencies for curl
-          pacman -S --noconfirm mingw-w64-${{ matrix.arch }}-cmake mingw-w64-${{ matrix.arch }}-ninja mingw-w64-${{ matrix.arch }}-zlib mingw-w64-${{ matrix.arch }}-zstd
+          # Install build dependencies for curl (including nghttp2 as fallback)
+          pacman -S --noconfirm mingw-w64-${{ matrix.arch }}-cmake mingw-w64-${{ matrix.arch }}-ninja mingw-w64-${{ matrix.arch }}-zlib mingw-w64-${{ matrix.arch }}-zstd mingw-w64-${{ matrix.arch }}-nghttp2
 
           # Download curl source
           curl -L -o curl-${CURL_VERSION}.tar.gz "https://curl.se/download/curl-${CURL_VERSION}.tar.gz"
@@ -250,6 +250,13 @@ jobs:
             -DCURL_ZSTD=ON \
             -DCURL_USE_NGHTTP2=OFF \
             -DCURL_HTTP2=OFF \
+            -DCURL_HTTP3=OFF \
+            -DCURL_USE_NGTCP2=OFF \
+            -DCURL_USE_QUICHE=OFF \
+            -DCURL_USE_MSH3=OFF \
+            -DUSE_NGHTTP2=OFF \
+            -DNGHTTP2_FOUND=OFF \
+            -DCMAKE_DISABLE_FIND_PACKAGE_NGHTTP2=ON \
             -DBUILD_CURL_EXE=OFF \
             -DBUILD_TESTING=OFF \
             -DCMAKE_INSTALL_PREFIX=/$dest
@@ -257,9 +264,9 @@ jobs:
           ninja install
           cd ../..
 
-          # Set up environment variables for static linking (without nghttp2)
+          # Set up environment variables for static linking (including nghttp2 if needed)
           echo "LIBCURL_CFLAGS=-I/$dest/include -DCURL_STATICLIB" >> $GITHUB_ENV
-          echo "LIBCURL_LIBS=-Xlinker /$dest/lib/libcurl.a -Xlinker /$dest/lib/libzstd.a -Xlinker /$dest/lib/libz.a -Xlinker -lws2_32 -Xlinker -lcrypt32 -Xlinker -lwldap32 -Xlinker -lbcrypt" >> $GITHUB_ENV
+          echo "LIBCURL_LIBS=-Xlinker /$dest/lib/libcurl.a -Xlinker /$dest/lib/libnghttp2.a -Xlinker /$dest/lib/libzstd.a -Xlinker /$dest/lib/libz.a -Xlinker -lws2_32 -Xlinker -lcrypt32 -Xlinker -lwldap32 -Xlinker -lbcrypt" >> $GITHUB_ENV
       - name: autogen
         run: ./autogen.sh libcurl_CFLAGS="${{env.LIBCURL_CFLAGS}}" libcurl_LIBS="${{env.LIBCURL_LIBS}}"
       - name: make
