@@ -237,7 +237,7 @@ jobs:
           tar -xzf curl-${CURL_VERSION}.tar.gz
           cd curl-${CURL_VERSION}
 
-          # Build static libcurl with WinSSL backend
+          # Build static libcurl with WinSSL backend (without HTTP/2 to reduce dependencies)
           mkdir build && cd build
           cmake .. \
             -G "Ninja" \
@@ -248,6 +248,8 @@ jobs:
             -DCURL_USE_OPENSSL=OFF \
             -DCURL_ZLIB=ON \
             -DCURL_ZSTD=ON \
+            -DCURL_USE_NGHTTP2=OFF \
+            -DCURL_HTTP2=OFF \
             -DBUILD_CURL_EXE=OFF \
             -DBUILD_TESTING=OFF \
             -DCMAKE_INSTALL_PREFIX=/$dest
@@ -255,7 +257,7 @@ jobs:
           ninja install
           cd ../..
 
-          # Set up environment variables for static linking
+          # Set up environment variables for static linking (without nghttp2)
           echo "LIBCURL_CFLAGS=-I/$dest/include -DCURL_STATICLIB" >> $GITHUB_ENV
           echo "LIBCURL_LIBS=-Xlinker /$dest/lib/libcurl.a -Xlinker /$dest/lib/libzstd.a -Xlinker /$dest/lib/libz.a -Xlinker -lws2_32 -Xlinker -lcrypt32 -Xlinker -lwldap32 -Xlinker -lbcrypt" >> $GITHUB_ENV
       - name: autogen
